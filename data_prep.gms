@@ -18,7 +18,7 @@ $ontext
    @since    :
    @refDoc   :
    @seeAlso  :
-   @calledBy : 
+   @calledBy :
 
 $offtext
 ********************************************************************************
@@ -106,7 +106,7 @@ $include '%datdir%\diet\health.gms'
 * ---write report to database and spreadsheet:
 $include '%datdir%\diet\report.gms'
 
-execute_unload '%datdir%\diet\health_impacts.gdx' p_health, DATA, report_cons;
+execute_unload '%datdir%\diet\health_impacts.gdx' p_health;
 
 
 $endif
