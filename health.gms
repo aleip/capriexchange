@@ -27,59 +27,41 @@ $offtext
 set stats /mean, low, high, std/;
 set cause  "causes of death"  /CHD, stroke, cancer, T2DM, resp_dis/  ;
 set age "age groups"  /20-24, 25-29, 30-34, 35-39, 40-44, 45-49, 50-54,55-59, 60-64, 65-69, 70-74, 75-79, 80-84, 85+/;
-set age_prm age groups for which deaths is premature (age 30-70 according to WHO) /30-34, 35-39, 40-44, 45-49, 50-54, 55-59, 60-64, 65-69/;
+set age_prm "age groups for which deaths is premature (age 30-70 according to WHO)" /30-34, 35-39, 40-44, 45-49, 50-54, 55-59, 60-64, 65-69/;
 set health_ind  "indicators for health analysis"  /deaths_avd, deaths_avd_prm, YLL_avd, deaths, deaths_prm, YLL/   ;
-set life_exp  /life_exp/
+set life_exp  /life_exp/;
 
-parameter p_health(*,*,*,*,*,*)health analysis of diets;
-parameter p_dr(age,cause,*,*)  mortality rate (deaths per pop);
-parameter p_pop(age,*,*)       population statistics (thousands);
-parameter p_life_exp(age,*)    GBD 2010 standard abridged life table;
-parameter p_diet_eatcategories(*,*,*,*)
-;
+parameter p_health(*,*,*,*,*,*) health analysis of diets;
+parameter dr(*,*,*,*)           mortality rate (deaths per pop);
+parameter pop(*,*,*)            population statistics (thousands);
+parameter life_exp(*,*)         GBD 2010 standard abridged life table;
+parameter p_total_death(*,*,*,*)total number of deaths;
+parameter p_dr(*,*,*,*)         mortality rate (deaths per pop) adjusted for capri regions;
+parameter p_pop(*,*,*)          population statistics (thousands) adjusted for capri regions;
+*parameter p_r_data              ;
+parameter p_diet_eatcategories(*,*,*,*);
 
-TABLE p_life_exp(age,*)
-age        life_exp
-0-1        86.02
-100+       2.23
-100-104     2.23
-10-14      76.27
-105+       1.63
-1-4        85.21
-15-19      71.29
-20-24      66.35
-25-29      61.4
-30-34      54.46
-35-39      51.53
-40-44      46.64
-45-49      41.8
-50-54      37.05
-55-59      32.38
-5-9        81.25
-60-64      27.81
-65-69      23.29
-70-74      18.93
-75-79      14.8
-80-84      10.99
-85+        7.64
-85-89      7.64
-90-94      5.05
-95-99      3.31
-;
+$include '%datdir%\diet\mapIMPACTregions.gms'
 
+execute_load '%datdir%\diet\dr_0203.gdx' dr, pop, life_exp;
 
-$gdxin dr.gdx
-$load p_dr, p_pop
-$gdxin
+p_total_death(age, cause, r, "%SIMY%") = dr(age,cause,r,"%SIMY%") * pop(age,r,"%SIMY%");
 
-TBC: p_r_data $r_data("all",r) - need to change the gdx file
+p_total_death(age, cause, rall, "%SIMY%") = sum(map_reg(r, rall), p_total_death(age, cause, r, "%SIMY%"));
+
+p_pop(age,rall,"%SIMY%") = sum(map_reg(r, rall), pop(age,r,"%SIMY%"));
+
+p_dr(age, cause, rall, "%SIMY%") = p_total_death(age, cause, rall, "%SIMY%")/p_pop(age,rall,"%SIMY%");
+
+*p_r_data("mort",rall)$p_dr("35-39","CHD",rall,"%SIMY%") = yes;
+*p_r_data("all",rall)$p_r_data("mort",rall) = yes;
 
 *-------------------------------------------------------------------------------
 
 *        select regions with data for health analysis:
 
 
-*p_r_data("cons",r)$sum(fg, cons_scn_data("g/d_w",fg,r,"2010")) = yes;
+*r_data("cons",r)$sum(fg, cons_scn_data("g/d_w",fg,r,"2010")) = yes;
 *r_data("mort",r)$dr("35-39","CHD",r,"2010") = yes;
 *r_data("bmi",r)$sum(weight, weight_scn("BMK",weight,r,"2010")) = yes;
 
@@ -91,11 +73,11 @@ TBC: p_r_data $r_data("all",r) - need to change the gdx file
 
 
 *        - avoided deaths:
-p_health("deaths_avd",foodagg,cause,rall,"%SIMY%","mean")$r_data("all",r)
+p_health("deaths_avd",foodagg,cause,rall,"%SIMY%","mean")
          = sum(age, p_PAF(foodagg,cause,rall,"%SIMY%","mean",age)
          * p_dr(age,cause,rall,"%SIMY%") * p_pop(age,rall,"%SIMY%") );
 
-p_health("deaths_avd",foodagg,cause,rall,"%SIMY%","std")$r_data("all",r)
+p_health("deaths_avd",foodagg,cause,rall,"%SIMY%","std")
          = sum(age, p_PAF(foodagg,cause,rall,"%SIMY%","std",age)
          *  p_dr(age,cause,rall,"%SIMY%") * p_pop(age,rall,"%SIMY%") );
 
@@ -115,11 +97,11 @@ p_health("deaths_avd",foodagg,cause,rall,"%SIMY%","high")
 
 
 *        - avoided premature deaths:
-p_health("deaths_avd_prm",foodagg,cause,rall,"%SIMY%","mean")$r_data("all",r)
+p_health("deaths_avd_prm",foodagg,cause,rall,"%SIMY%","mean")
          = sum(age_prm, p_PAF(foodagg,cause,rall,"%SIMY%","mean",age_prm)
          * p_dr(age_prm,cause,rall,"%SIMY%") * p_pop(age_prm,rall,"%SIMY%") );
 
-p_health("deaths_avd_prm",foodagg,cause,rall,"%SIMY%","std")$r_data("all",r)
+p_health("deaths_avd_prm",foodagg,cause,rall,"%SIMY%","std")
          = sum(age_prm, p_PAF(foodagg,cause,rall,"%SIMY%","std",age_prm)
          * p_dr(age_prm,cause,rall,"%SIMY%") * p_pop(age_prm,rall,"%SIMY%") );
 
@@ -139,12 +121,12 @@ p_health("deaths_avd_prm",foodagg,cause,rall,"%SIMY%","high")
 
 
 *        - Years of Life Lost (YLL):
-p_health("YLL_avd",foodagg,cause,rall,"%SIMY%","mean")$r_data("all",r)
+p_health("YLL_avd",foodagg,cause,rall,"%SIMY%","mean")
          = sum(age, p_PAF(foodagg,cause,rall,"%SIMY%","mean",age)
          * p_dr(age,cause,rall,"%SIMY%") * p_pop(age,rall,"%SIMY%")
          * p_life_exp(age,"life_exp") );
 
-p_health("YLL_avd",foodagg,cause,rall,"%SIMY%","std")$r_data("all",r)
+p_health("YLL_avd",foodagg,cause,rall,"%SIMY%","std")
          = sum(age, p_PAF(foodagg,cause,rall,"%SIMY%","std",age)
          * p_dr(age,cause,rall,"%SIMY%") * p_pop(age,rall,"%SIMY%")
          * p_life_exp(age,"life_exp") );
